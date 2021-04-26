@@ -1,26 +1,28 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"strings"
 )
 
 var (
 	delimiter   string
 	inFilePath  string
 	outFilePath string
+	comma       rune
 )
 
 func main() {
 	flag.StringVar(&delimiter, "delimiter", ",", "source file delimiter")
 	flag.Parse()
 	if delimiter == "tab" {
-		delimiter = "\t"
+		comma = '\t'
+	} else {
+		comma = rune(delimiter[0])
 	}
 	args := flag.Args()
 	if len(args) < 1 {
@@ -35,26 +37,22 @@ func main() {
 		checkErr(err)
 	}
 	defer inFile.Close()
-	inData, err := ioutil.ReadAll(inFile)
+	reader := csv.NewReader(inFile)
+	reader.Comma = comma
+	reader.LazyQuotes = true
+	rows, err := reader.ReadAll()
 	if err != nil {
 		checkErr(err)
 	}
-	rows := strings.Split(string(inData), "\n")
-	headerRow := strings.Split(strings.TrimSpace(rows[0]), delimiter)
+	headerRow := rows[0]
 	var data []interface{}
 	for _, row := range rows[1:] {
 		obj := make(map[string]interface{})
-		row = strings.TrimSpace(row)
-		if row == "" {
-			// empty row, continue
-			continue
-		}
-		dataRow := strings.Split(row, delimiter)
-		if len(dataRow) != len(headerRow) {
-			checkErr(fmt.Errorf("column len missmatch:\n%v\n%v", headerRow, dataRow))
+		if len(row) != len(headerRow) {
+			checkErr(fmt.Errorf("column len missmatch:\n%v\n%v", headerRow, row))
 		}
 		for j, header := range headerRow {
-			obj[header] = dataRow[j]
+			obj[header] = row[j]
 		}
 		data = append(data, obj)
 	}
