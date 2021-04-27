@@ -13,6 +13,8 @@ var (
 	delimiter   string
 	inFilePath  string
 	outFilePath string
+	src         io.ReadCloser
+	dest        io.WriteCloser
 	comma       rune
 )
 
@@ -25,27 +27,34 @@ func main() {
 		comma = rune(delimiter[0])
 	}
 	args := flag.Args()
-	if len(args) < 1 {
-		checkErr("missing source file or destination file")
-	}
-	inFilePath = args[0]
-	if len(args) == 2 {
-		outFilePath = args[1]
-	}
-	inFile, err := os.Open(inFilePath)
-	if err != nil {
+	var err error
+	switch len(args) {
+	case 0:
+		src = os.Stdin
+		dest = os.Stdout
+	case 1:
+		src, err = os.Open(args[0])
 		checkErr(err)
+		dest = os.Stdout
+	case 2:
+		src, err = os.Open(args[0])
+		checkErr(err)
+		dest, err = os.Create(args[1])
+		checkErr(err)
+	default:
+		panic("invalid number of args")
 	}
-	defer inFile.Close()
-	reader := csv.NewReader(inFile)
+	defer src.Close()
+	defer dest.Close()
+
+	reader := csv.NewReader(src)
 	reader.Comma = comma
 	reader.LazyQuotes = true
 	rows, err := reader.ReadAll()
-	if err != nil {
-		checkErr(err)
-	}
+	checkErr(err)
+
 	headerRow := rows[0]
-	var data []interface{}
+	var data []map[string]interface{}
 	for _, row := range rows[1:] {
 		obj := make(map[string]interface{})
 		if len(row) != len(headerRow) {
@@ -56,15 +65,8 @@ func main() {
 		}
 		data = append(data, obj)
 	}
-	var out io.Writer
-	if outFilePath != "" {
-		out, err = os.Create(outFilePath)
-		checkErr(err)
-	} else {
-		out = os.Stdout
-	}
 
-	err = json.NewEncoder(out).Encode(data)
+	err = json.NewEncoder(dest).Encode(data)
 	checkErr(err)
 }
 
