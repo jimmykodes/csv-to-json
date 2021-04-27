@@ -9,16 +9,14 @@ import (
 	"os"
 )
 
-var (
-	delimiter   string
-	inFilePath  string
-	outFilePath string
-	src         io.ReadCloser
-	dest        io.WriteCloser
-	comma       rune
-)
-
 func main() {
+	var (
+		delimiter string
+		src       io.ReadCloser
+		dest      io.WriteCloser
+		comma     rune
+	)
+
 	flag.StringVar(&delimiter, "delimiter", ",", "source file delimiter")
 	flag.Parse()
 	if delimiter == "tab" {
